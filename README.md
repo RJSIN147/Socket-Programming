@@ -450,4 +450,4 @@ finally:
 
 ---
 ##PS
-If you would like something added or explained in more detail, you can email me or contact me any other way.
+If you would like something added or explained in more detail, you can email me or contact me in any other way.
