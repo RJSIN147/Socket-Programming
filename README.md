@@ -95,6 +95,93 @@ client_socket.close()
 How to run (PowerShell):
 - With the server running, start the client: `python .\\TCP\\client.py`
 
+### `TCP/chat_server.py` — Interactive TCP chat (turn-based, server replies)
+
+```1:41:d:\CN\TCP\chat_server.py
+import socket
+
+HOST = '127.0.0.1'
+PORT = 23456
+BUFFER_SIZE = 4096
+
+# Create TCP socket
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server_socket.bind((HOST, PORT))
+server_socket.listen(1)
+print(f"TCP Chat Server listening on {HOST}:{PORT} ...")
+
+conn, addr = server_socket.accept()
+print(f"Client connected from {addr}")
+
+try:
+    while True:
+        # Receive from client
+        data = conn.recv(BUFFER_SIZE)
+        if not data:
+            print("Client disconnected")
+            break
+        message = data.decode().strip()
+        print(f"Client: {message}")
+
+        if message.lower() == 'exit':
+            conn.sendall("Goodbye! Closing connection.".encode())
+            break
+
+        # Server types a reply
+        server_message = input("You (server): ")
+        conn.sendall(server_message.encode())
+
+        if server_message.lower() == 'exit':
+            break
+finally:
+    conn.close()
+    server_socket.close()
+    print("Server closed.")
+```
+- Creates a TCP server and waits for a single client.
+- Loop: read client message → print it → if `exit`, send goodbye and close → else prompt the server operator to type a reply and send it.
+- Uses blocking I/O; each side waits for the other in turn.
+
+### `TCP/chat_client.py` — Interactive TCP chat client
+
+```1:29:d:\CN\TCP\chat_client.py
+import socket
+
+HOST = '127.0.0.1'
+PORT = 23456
+BUFFER_SIZE = 4096
+
+# Create TCP socket
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client_socket.connect((HOST, PORT))
+print(f"Connected to TCP Chat Server at {HOST}:{PORT}")
+
+
+try:
+    while True:
+        message = input("You (client): ")
+        client_socket.sendall(message.encode())
+
+        data = client_socket.recv(BUFFER_SIZE)
+        if not data:
+            print("Server closed the connection.")
+            break
+        print("Server:", data.decode().strip())
+
+        if message.lower() == 'exit':
+            break
+finally:
+    client_socket.close()
+    print("Client closed.")
+```
+- Connects to the chat server and enters a loop: type a message, send it, wait for server reply, print it.
+- Typing `exit` closes the session.
+
+How to run (PowerShell):
+- In one terminal: `python .\\TCP\\chat_server.py`
+- In another: `python .\\TCP\\chat_client.py`
+
 ---
 
 ## UDP examples (faster, connectionless)
@@ -130,9 +217,6 @@ server_socket.close()
 - `recvfrom(1024)`: Also returns the sender’s address, since there’s no persistent connection.
 - `sendto(...)`: You must specify the destination address each time.
 
-How to run (PowerShell):
-- Start the UDP server: `python .\\UDP\\server.py`
-
 ### `UDP/client.py` — Basic UDP client
 
 ```1:18:d:\CN\UDP\client.py
@@ -155,10 +239,85 @@ print("Server says:", data.decode())
 client_socket.close()
 ```
 - Send a datagram using `sendto`, then wait for one with `recvfrom`.
-- If nothing arrives, `recvfrom` blocks. Real apps might use timeouts with `settimeout(seconds)`.
+
+### `UDP/chat_server.py` — Interactive UDP chat (turn-based)
+
+```1:38:d:\CN\UDP\chat_server.py
+import socket
+
+HOST = '127.0.0.1'
+PORT = 23457
+BUFFER_SIZE = 4096
+
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+server_socket.bind((HOST, PORT))
+print(f"UDP Chat Server listening on {HOST}:{PORT} ...")
+
+client_address = None
+
+try:
+    while True:
+        # Receive from client
+        data, addr = server_socket.recvfrom(BUFFER_SIZE)
+        message = data.decode().strip()
+
+        if client_address is None:
+            client_address = addr
+            print(f"Client connected from {client_address}")
+
+        print(f"Client: {message}")
+
+        if message.lower() == 'exit':
+            server_socket.sendto("Goodbye! Closing session.".encode(), addr)
+            break
+
+        # Server types a reply
+        server_message = input("You (server): ")
+        server_socket.sendto(server_message.encode(), addr)
+
+        if server_message.lower() == 'exit':
+            break
+finally:
+    server_socket.close()
+    print("Server closed.")
+```
+- Receives a datagram from the client, prints it, and asks the server operator to type a reply to send back.
+- Uses the sender’s address from `recvfrom` (no connection). `exit` ends the session.
+
+### `UDP/chat_client.py` — Interactive UDP chat client
+
+```1:25:d:\CN\UDP\chat_client.py
+import socket
+
+HOST = '127.0.0.1'
+PORT = 23457
+BUFFER_SIZE = 4096
+
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+server_address = (HOST, PORT)
+print(f"Connected (UDP) to {HOST}:{PORT}. Type messages; 'exit' to quit.")
+
+
+try:
+    while True:
+        message = input("You (client): ")
+        client_socket.sendto(message.encode(), server_address)
+
+        data, _ = client_socket.recvfrom(BUFFER_SIZE)
+        print("Server:", data.decode().strip())
+
+        if message.lower() == 'exit':
+            break
+finally:
+    client_socket.close()
+    print("Client closed.")
+```
+- Sends a datagram typed by the user and waits for the server’s reply to print.
+- Typing `exit` ends the chat.
 
 How to run (PowerShell):
-- With the UDP server running, run: `python .\\UDP\\client.py`
+- UDP server: `python .\\UDP\\chat_server.py`
+- UDP client: `python .\\UDP\\chat_client.py`
 
 ---
 
@@ -216,9 +375,6 @@ Content-Type: text/html
   - Blank line: must be present between headers and body.
   - Body: the HTML page content.
 - The printed request shows method (`GET`), path (`/`), and headers.
-
-How to run (PowerShell):
-- Start: `python .\\HTTPserver.py`, then open `http://127.0.0.1:8080` in a browser.
 
 ### `MThttpserver.py` — Threaded minimal HTTP server (handles multiple clients)
 
@@ -281,9 +437,6 @@ finally:
 - `daemon=True`: Threads won’t block program exit; they stop when the main thread stops.
 - Each connection is processed independently in `handle_client`, while the main loop immediately returns to `accept()`.
 - `Connection: close` header indicates the server will close the TCP connection after the response.
-
-How to run (PowerShell):
-- Start: `python .\\MThttpserver.py`, then open multiple tabs to `http://127.0.0.1:8080`.
 
 ---
 
