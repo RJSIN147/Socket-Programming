@@ -447,3 +447,7 @@ finally:
 - Network data is bytes. Use `.encode()` to send strings and `.decode()` to read them.
 - `127.0.0.1` means your own machine. To communicate across machines, replace with the server’s IP and ensure they can reach each other over the network.
 - On Windows PowerShell, run commands exactly as shown above; they assume your working directory is the repo root.
+
+---
+##PS
+If you would like something added or explained in more detail, you can email me or contact me any other way.
